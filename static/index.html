@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SAP ICC Certificate Report Generation - Automation</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    :root {
+      --blue:        #0057D9;
+      --blue-dark:   #0040A8;
+      --blue-mid:    #1B6EF5;
+      --blue-light:  #EBF2FF;
+      --green:       #0D7A45;
+      --green-light: #E8F7EF;
+      --red:         #C0392B;
+      --red-light:   #FDECEA;
+      --amber:       #B45309;
+      --amber-light: #FEF3C7;
+      --bg:          #F0F4FA;
+      --surface:     #FFFFFF;
+      --border:      #DDE3EC;
+      --text:        #1A2035;
+      --text-muted:  #64748B;
+      --shadow-sm:   0 1px 4px rgba(0,0,0,.07);
+      --shadow:      0 4px 20px rgba(0,0,0,.09);
+      --shadow-lg:   0 8px 32px rgba(0,0,0,.13);
+      --radius:      12px;
+      --radius-sm:   8px;
+      --font:        "Inter", system-ui, Arial, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── header ── */
+    header {
+      background: linear-gradient(135deg, #0040A8 0%, #1B6EF5 60%, #3B82F6 100%);
+      padding: 0 40px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      box-shadow: 0 2px 16px rgba(0,64,168,.3);
+    }
+    .header-logo {
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 1px;
+      background: rgba(255,255,255,.18);
+      border: 1.5px solid rgba(255,255,255,.35);
+      border-radius: 6px;
+      padding: 3px 10px;
+    }
+    .header-sep { width: 1px; height: 28px; background: rgba(255,255,255,.3); }
+    .header-title { font-size: 15px; color: rgba(255,255,255,.9); font-weight: 500; letter-spacing: .2px; }
+    .header-badge {
+      margin-left: auto;
+      background: rgba(255,255,255,.15);
+      border: 1px solid rgba(255,255,255,.3);
+      color: rgba(255,255,255,.9);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    /* ── hero ── */
+    .hero {
+      background: linear-gradient(135deg, #0040A8 0%, #1B6EF5 60%, #3B82F6 100%);
+      padding: 40px 40px 60px;
+      text-align: center;
+      color: #fff;
+    }
+    .hero h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      letter-spacing: -.3px;
+    }
+    .hero p {
+      font-size: 15px;
+      color: rgba(255,255,255,.8);
+      max-width: 520px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    /* ── main ── */
+    main {
+      flex: 1;
+      max-width: 900px;
+      width: 100%;
+      margin: -32px auto 40px;
+      padding: 0 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 28px 32px;
+      border: 1px solid var(--border);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+    .step-badge {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--blue-mid), var(--blue-dark));
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0,87,217,.3);
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .card-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    /* ── upload grid ── */
+    .upload-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 600px) { .upload-grid { grid-template-columns: 1fr; } }
+
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 32px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all .2s ease;
+      position: relative;
+      min-height: 160px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: #FAFBFD;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: var(--blue-mid);
+      background: var(--blue-light);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0,87,217,.12);
+    }
+    .upload-zone.has-file {
+      border-color: var(--green);
+      background: var(--green-light);
+      border-style: solid;
+    }
+    .upload-zone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .upload-icon {
+      width: 48px; height: 48px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+      background: var(--blue-light);
+      margin-bottom: 4px;
+      transition: background .2s;
+    }
+    .upload-zone.has-file .upload-icon { background: var(--green-light); }
+    .upload-label { font-size: 14px; font-weight: 600; color: var(--text); }
+    .upload-hint  { font-size: 12px; color: var(--text-muted); }
+    .upload-filename {
+      font-size: 12px;
+      color: var(--green);
+      font-weight: 600;
+      word-break: break-all;
+      max-width: 100%;
+      line-height: 1.4;
+    }
+    .file-count {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: var(--blue);
+      color: #fff;
+      border-radius: 20px;
+      padding: 3px 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* ── action row ── */
+    .action-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      height: 44px;
+      padding: 0 28px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: var(--font);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .18s ease;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--blue-mid), var(--blue-dark));
+      color: #fff;
+      box-shadow: 0 2px 10px rgba(0,87,217,.3);
+    }
+    .btn-primary:hover:not(:disabled) {
+      box-shadow: 0 4px 18px rgba(0,87,217,.45);
+      transform: translateY(-1px);
+    }
+    .btn-primary:active:not(:disabled) { transform: translateY(0); }
+    .btn-primary:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+    .btn-ghost {
+      background: transparent;
+      color: var(--blue);
+      border: 1.5px solid var(--blue-light);
+    }
+    .btn-ghost:hover { background: var(--blue-light); border-color: var(--blue); }
+
+    /* ── status banner ── */
+    .status-banner {
+      border-radius: var(--radius-sm);
+      padding: 14px 18px;
+      font-size: 14px;
+      display: none;
+      align-items: flex-start;
+      gap: 12px;
+      border: 1px solid transparent;
+    }
+    .status-banner.show { display: flex; }
+    .status-banner.info    { background: var(--blue-light);  color: var(--blue-dark);  border-color: #BDD5FF; }
+    .status-banner.success { background: var(--green-light); color: var(--green);      border-color: #A7DFBF; }
+    .status-banner.error   { background: var(--red-light);   color: var(--red);        border-color: #F5B7B1; }
+    .status-banner.warning { background: var(--amber-light); color: var(--amber);      border-color: #FDE68A; }
+    .status-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+
+    /* ── spinner ── */
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2.5px solid rgba(0,87,217,.2);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── progress bar ── */
+    .progress-wrap {
+      height: 5px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 14px;
+      display: none;
+    }
+    .progress-wrap.show { display: block; }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--blue-mid), #60A5FA);
+      width: 0%;
+      transition: width .3s ease;
+      border-radius: 3px;
+    }
+
+    /* ── summary ── */
+    .summary-section { display: none; }
+    .summary-section.show { display: block; }
+
+    .summary-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .stat-box {
+      border-radius: var(--radius-sm);
+      padding: 18px 16px;
+      text-align: center;
+      border: 1px solid transparent;
+    }
+    .stat-box.filled  { background: var(--green-light); border-color: #A7DFBF; }
+    .stat-box.skipped { background: var(--amber-light); border-color: #FDE68A; }
+    .stat-box.total   { background: var(--blue-light);  border-color: #BDD5FF; }
+    .stat-num { font-size: 36px; font-weight: 700; line-height: 1; }
+    .stat-box.filled  .stat-num { color: var(--green); }
+    .stat-box.skipped .stat-num { color: var(--amber); }
+    .stat-box.total   .stat-num { color: var(--blue); }
+    .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 5px; font-weight: 500; }
+
+    .download-hint {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--green-light);
+      border: 1px solid #A7DFBF;
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      font-size: 13px;
+      color: var(--green);
+      font-weight: 500;
+      margin-bottom: 20px;
+    }
+
+    .details-toggle {
+      background: none; border: 1px solid var(--border);
+      color: var(--blue);
+      font-family: var(--font); font-size: 13px; cursor: pointer;
+      padding: 7px 16px;
+      border-radius: 6px;
+      font-weight: 500;
+      margin-bottom: 14px;
+      transition: background .15s;
+    }
+    .details-toggle:hover { background: var(--blue-light); }
+
+    .details-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      display: none;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .details-table.show { display: table; }
+    .details-table th {
+      background: var(--bg);
+      padding: 10px 12px;
+      text-align: left;
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .details-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .details-table tr:last-child td { border-bottom: none; }
+    .details-table tr:hover td { background: #FAFBFD; }
+
+    .badge {
+      display: inline-block;
+      border-radius: 20px;
+      padding: 2px 10px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-green  { background: var(--green-light);  color: var(--green); }
+    .badge-yellow { background: var(--amber-light);  color: var(--amber); }
+    .badge-red    { background: var(--red-light);    color: var(--red); }
+    .badge-blue   { background: var(--blue-light);   color: var(--blue); }
+
+    /* ── footer ── */
+    footer {
+      text-align: center;
+      padding: 24px;
+      font-size: 12px;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 412.38 204" style="height:36px" aria-label="SAP">
+    <defs>
+      <linearGradient id="sap-grad" x1="206.19" y1="0" x2="206.19" y2="204" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#00b1eb"/>
+        <stop offset=".212" stop-color="#009ad9"/>
+        <stop offset=".519" stop-color="#007fc4"/>
+        <stop offset=".792" stop-color="#006eb8"/>
+        <stop offset="1" stop-color="#0069b4"/>
+      </linearGradient>
+    </defs>
+    <polyline fill="url(#sap-grad)" fill-rule="evenodd" points="0 204 208.413 204 412.38 0 0 0 0 204"/>
+    <path fill="#fff" fill-rule="evenodd" d="m244.727,38.359l-40.593-.025v96.518l-35.46-96.518h-35.16l-30.277,80.716c-3.224-20.352-24.277-27.38-40.84-32.649-10.937-3.512-22.541-8.678-22.434-14.387.091-4.687,6.225-9.04,18.377-8.385,8.17.433,15.373,1.092,29.71,8.006l14.102-24.557c-13.088-6.658-31.169-10.867-45.985-10.883h-.086c-17.277,0-31.677,5.598-40.602,14.824-6.221,6.443-9.572,14.626-9.712,23.679-.227,12.454,4.341,21.292,13.938,28.338,8.104,5.944,18.468,9.794,27.603,12.626,11.27,3.492,20.467,6.526,20.36,13.002-.083,2.355-.977,4.552-2.671,6.337-2.807,2.897-7.124,3.986-13.084,4.098-11.497.243-20.026-1.559-33.61-9.585l-12.536,24.903c13.546,7.705,29.586,12.223,45.952,12.223l2.106-.024c14.247-.256,25.745-4.316,34.929-11.712.527-.416,1.001-.845,1.488-1.277l-4.073,10.874h36.875l6.189-18.822c6.477,2.214,13.847,3.437,21.676,3.437,7.618,0,14.795-1.17,21.156-3.252l5.965,18.637h60.137v-38.969h13.113c31.706,0,50.456-16.147,50.456-43.202,0-30.139-18.219-43.969-57.011-43.969Zm-93.816,82.587c-4.737,0-9.177-.828-13.006-2.275l12.866-40.593h.244l12.643,40.708c-3.801,1.349-8.138,2.16-12.746,2.16Zm96.199-23.324h-8.941v-32.711h8.941c11.927,0,21.437,3.961,21.437,16.139,0,12.602-9.51,16.572-21.437,16.572"/>
+  </svg>
+  <div class="header-sep"></div>
+  <div class="header-title">SAP ICC Certificate Report Generation - Automation</div>
+  <div class="header-badge">SAP ICC</div>
+</header>
+
+<div class="hero">
+  <h1>SAP ICC Certificate Report Generation</h1>
+  <p>Automation tool for ICC consultants — upload your certificate test report template and TPP source files to generate the filled report automatically.</p>
+</div>
+
+<main>
+
+  <!-- Upload card -->
+  <div class="card">
+    <div class="card-header">
+      <div class="step-badge">1</div>
+      <div>
+        <div class="card-title">Upload Files</div>
+        <div class="card-subtitle">Select your .docm template and one or more .docx source files</div>
+      </div>
+    </div>
+    <div class="upload-grid">
+
+      <div class="upload-zone" id="template-zone">
+        <input type="file" id="template-input" accept=".docm" title=""/>
+        <div class="upload-icon">📄</div>
+        <div class="upload-label">Template File</div>
+        <div class="upload-hint">.docm — drag &amp; drop or click</div>
+        <div class="upload-filename" id="template-name" style="display:none"></div>
+      </div>
+
+      <div class="upload-zone" id="sources-zone">
+        <input type="file" id="sources-input" accept=".docx,.docm" multiple title=""/>
+        <div class="upload-icon">📂</div>
+        <div class="upload-label">Source Files (TPP)</div>
+        <div class="upload-hint">.docx — one or more, drag &amp; drop or click</div>
+        <div id="sources-info" style="display:none">
+          <span class="file-count" id="sources-count">0 files</span>
+          <div class="upload-filename" id="sources-names" style="margin-top:6px"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Action card -->
+  <div class="card">
+    <div class="card-header">
+      <div class="step-badge">2</div>
+      <div>
+        <div class="card-title">Fill Report</div>
+        <div class="card-subtitle">Upload your source files and the tool will fill the template automatically</div>
+      </div>
+    </div>
+    <div class="action-row">
+      <button class="btn btn-primary" id="fill-btn" disabled>
+        <span>⚡</span> Fill Report
+      </button>
+      <button class="btn btn-ghost" id="reset-btn">↺ Reset</button>
+    </div>
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+  </div>
+
+  <!-- Status banner -->
+  <div class="status-banner" id="status-banner">
+    <div id="status-icon" class="status-icon"></div>
+    <div id="status-text"></div>
+  </div>
+
+  <!-- Summary card -->
+  <div class="card summary-section" id="summary-section">
+    <div class="card-header">
+      <div class="step-badge">3</div>
+      <div>
+        <div class="card-title">Fill Summary</div>
+        <div class="card-subtitle">Overview of what was filled, skipped, or left unchanged</div>
+      </div>
+    </div>
+
+    <div class="download-hint">
+      ✔ &nbsp;Your filled report has been downloaded automatically.
+    </div>
+
+    <div class="summary-stats">
+      <div class="stat-box filled">
+        <div class="stat-num" id="stat-filled">0</div>
+        <div class="stat-label">Fields Filled</div>
+      </div>
+      <div class="stat-box skipped">
+        <div class="stat-num" id="stat-skipped">0</div>
+        <div class="stat-label">No Match / Skipped</div>
+      </div>
+      <div class="stat-box total">
+        <div class="stat-num" id="stat-total">0</div>
+        <div class="stat-label">Total Fields</div>
+      </div>
+    </div>
+
+    <button class="details-toggle" id="details-toggle">Show field details ▾</button>
+    <table class="details-table" id="details-table">
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Status</th>
+          <th>Value Preview</th>
+        </tr>
+      </thead>
+      <tbody id="details-body"></tbody>
+    </table>
+  </div>
+
+</main>
+
+<footer>
+  SAP Integration &amp; Certification Center &mdash; Certificate Report Generation - Automation
+</footer>
+
+<script>
+  let templateFile = null;
+  let sourceFiles  = [];
+
+  const templateZone  = document.getElementById('template-zone');
+  const templateInput = document.getElementById('template-input');
+  const templateName  = document.getElementById('template-name');
+  const sourcesZone   = document.getElementById('sources-zone');
+  const sourcesInput  = document.getElementById('sources-input');
+  const sourcesInfo   = document.getElementById('sources-info');
+  const sourcesCount  = document.getElementById('sources-count');
+  const sourcesNames  = document.getElementById('sources-names');
+  const fillBtn       = document.getElementById('fill-btn');
+  const resetBtn      = document.getElementById('reset-btn');
+  const progressWrap  = document.getElementById('progress-wrap');
+  const progressBar   = document.getElementById('progress-bar');
+  const statusBanner  = document.getElementById('status-banner');
+  const statusIcon    = document.getElementById('status-icon');
+  const statusText    = document.getElementById('status-text');
+  const summarySection = document.getElementById('summary-section');
+  const statFilled    = document.getElementById('stat-filled');
+  const statSkipped   = document.getElementById('stat-skipped');
+  const statTotal     = document.getElementById('stat-total');
+  const detailsToggle = document.getElementById('details-toggle');
+  const detailsTable  = document.getElementById('details-table');
+  const detailsBody   = document.getElementById('details-body');
+
+  function setStatus(type, msg) {
+    statusBanner.className = `status-banner show ${type}`;
+    statusText.textContent = msg;
+    if (type === 'loading') {
+      statusIcon.innerHTML = '<div class="spinner"></div>';
+    } else {
+      const icons = { info: 'ℹ️', success: '✅', error: '❌', warning: '⚠️' };
+      statusIcon.innerHTML = icons[type] || 'ℹ️';
+    }
+  }
+  function hideStatus() { statusBanner.className = 'status-banner'; }
+  function setProgress(pct) { progressBar.style.width = pct + '%'; }
+  function updateFillBtn() { fillBtn.disabled = !(templateFile && sourceFiles.length > 0); }
+
+  function setTemplateFile(file) {
+    templateFile = file;
+    templateName.textContent = '✔ ' + file.name;
+    templateName.style.display = 'block';
+    templateZone.classList.add('has-file');
+    updateFillBtn();
+  }
+
+  function setSourceFiles(files) {
+    sourceFiles = Array.from(files);
+    sourcesCount.textContent = `${sourceFiles.length} file${sourceFiles.length !== 1 ? 's' : ''}`;
+    sourcesNames.textContent = sourceFiles.map(f => f.name).join('\n');
+    sourcesInfo.style.display = 'block';
+    sourcesZone.classList.add('has-file');
+    updateFillBtn();
+  }
+
+  function resetAll() {
+    templateFile = null; sourceFiles = [];
+    templateInput.value = ''; sourcesInput.value = '';
+    templateName.style.display = 'none';
+    sourcesInfo.style.display  = 'none';
+    templateZone.classList.remove('has-file');
+    sourcesZone.classList.remove('has-file');
+    progressWrap.classList.remove('show');
+    setProgress(0);
+    hideStatus();
+    summarySection.classList.remove('show');
+    updateFillBtn();
+  }
+
+  function setupDrop(zone, input, multi, onFiles) {
+    zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', ()  => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      const files = multi ? e.dataTransfer.files : [e.dataTransfer.files[0]];
+      if (files[0]) onFiles(files);
+    });
+    input.addEventListener('change', e => { if (e.target.files[0]) onFiles(e.target.files); });
+    input.addEventListener('click', e => e.stopPropagation());
+    zone.addEventListener('click', () => input.click());
+  }
+
+  setupDrop(templateZone, templateInput, false, files => setTemplateFile(files[0]));
+  setupDrop(sourcesZone,  sourcesInput,  true,  files => setSourceFiles(files));
+  resetBtn.addEventListener('click', resetAll);
+
+  fillBtn.addEventListener('click', async () => {
+    hideStatus();
+    summarySection.classList.remove('show');
+    fillBtn.disabled = true;
+    progressWrap.classList.add('show');
+    setProgress(10);
+    setStatus('loading', 'Uploading files and analysing with Claude AI…');
+
+    const fd = new FormData();
+    fd.append('template', templateFile);
+    sourceFiles.forEach(f => fd.append('sources', f));
+
+    let prog = 10;
+    const ticker = setInterval(() => {
+      prog = Math.min(prog + 3, 85);
+      setProgress(prog);
+    }, 500);
+
+    try {
+      const resp = await fetch('/api/fill', { method: 'POST', body: fd });
+      clearInterval(ticker);
+      setProgress(95);
+
+      if (!resp.ok) {
+        let detail = 'Unknown error';
+        try { detail = (await resp.json()).detail; } catch(_) {}
+        setStatus('error', `Error: ${detail}`);
+        progressWrap.classList.remove('show');
+        fillBtn.disabled = false;
+        return;
+      }
+
+      const blob = await resp.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      const cd   = resp.headers.get('Content-Disposition') || '';
+      const match = cd.match(/filename="([^"]+)"/);
+      a.download = match ? match[1] : 'filled_report.docm';
+      a.href = url;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+      setProgress(100);
+      setStatus('success', `Report filled and downloaded as "${a.download}"`);
+
+      const rawSummary = resp.headers.get('X-Fill-Summary');
+      if (rawSummary) {
+        try { renderSummary(JSON.parse(rawSummary)); } catch(_) {}
+      }
+
+    } catch (err) {
+      clearInterval(ticker);
+      setStatus('error', `Network error: ${err.message}`);
+    } finally {
+      fillBtn.disabled = false;
+      setTimeout(() => progressWrap.classList.remove('show'), 1500);
+    }
+  });
+
+  function renderSummary(s) {
+    statFilled.textContent  = s.filled  ?? 0;
+    statSkipped.textContent = s.skipped ?? 0;
+    statTotal.textContent   = s.total   ?? 0;
+
+    detailsBody.innerHTML = '';
+    for (const [field, status] of Object.entries(s.details || {})) {
+      const tr = document.createElement('tr');
+      let badgeClass = 'badge-blue', label = status, val = '';
+
+      if (status.startsWith('filled:'))      { badgeClass = 'badge-green';  label = 'filled';     val = status.replace('filled:', ''); }
+      else if (status.startsWith('set:'))    { badgeClass = 'badge-green';  label = 'set';         val = status.replace('set:', ''); }
+      else if (status === 'checked')         { badgeClass = 'badge-green';  label = 'checked ✔'; }
+      else if (status === 'unchecked')       { badgeClass = 'badge-blue';   label = 'unchecked'; }
+      else if (status === 'no_match')        { badgeClass = 'badge-yellow'; label = 'no match'; }
+      else if (status === 'unchanged')       { badgeClass = 'badge-blue';   label = 'unchanged'; }
+
+      tr.innerHTML = `
+        <td style="font-family:monospace;font-size:11px;color:var(--text-muted)">${field}</td>
+        <td><span class="badge ${badgeClass}">${label}</span></td>
+        <td style="color:var(--text-muted);max-width:280px;word-break:break-word;font-size:12px">${val}</td>
+      `;
+      detailsBody.appendChild(tr);
+    }
+    summarySection.classList.add('show');
+  }
+
+  detailsToggle.addEventListener('click', () => {
+    const open = detailsTable.classList.toggle('show');
+    detailsToggle.textContent = open ? 'Hide field details ▴' : 'Show field details ▾';
+  });
+</script>
+</body>
+</html>

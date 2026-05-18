@@ -1,0 +1,14 @@
+---
+applications:
+- name: icc-cert-report-tool
+  memory: 512M
+  disk_quota: 512M
+  instances: 1
+  buildpacks:
+  - python_buildpack
+  command: uvicorn main:app --host 0.0.0.0 --port $PORT
+  random-route: true
+  env:
+    PYTHONUNBUFFERED: "1"
+    PYTHONDONTWRITEBYTECODE: "1"
+    ANTHROPIC_API_KEY: ""
