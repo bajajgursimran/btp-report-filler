@@ -291,9 +291,13 @@ Rules:
   Some labels contain placeholders like "<mention the version>" — match on the base product name only.
 - "dropdown" fields → return the string exactly matching one of the listed options, or null
 - "test_row" fields → return a full test case string (multi-line is fine, use \\n)
-  - Fields with "section": "functional" → derive from the partner's main functional capabilities and business processes
-  - Fields with "section": "error_handling" → derive from error handling, exception flows, and failure scenarios described in the source
+  - Fields with "section": "functional" → derive ONLY from explicitly described functional capabilities in the source
+  - Fields with "section": "error_handling" → derive ONLY from explicitly described error handling, exception flows, and failure scenarios in the source
   - These two sections MUST be different — do not reuse functional test cases for error handling rows
+  - CRITICAL: Only fill as many rows as there are actual test cases described in the source data for that section.
+    If the source only describes 1 functional test case, return a value for test_row_functional_1. only and null for all others.
+    If the source describes 2 error handling cases, fill test_row_error_handling_1. and test_row_error_handling_2. and null for the rest.
+    Do NOT invent or fabricate test cases that are not described in the source data.
   - Include: test case name, description, steps, expected result
 - Only use information present in the source data — do not invent partner details
 - For fields where source data has no relevant information, return null
