@@ -199,14 +199,26 @@ def extract_field_catalogue(doc_xml: str) -> list[dict]:
                            "context": rich_context, "current": cur_text})
 
     # numbered test-case rows (plain table cells, not form fields)
+    test_row_seen: dict[str, int] = {}
     for m in re.finditer(r'<w:t>(\d+\.)</w:t></w:r>', doc_xml):
-        snippet   = doc_xml[max(0, m.start() - 400): m.start()]
+        snippet   = doc_xml[max(0, m.start() - 1500): m.start()]
         ctx_texts = re.findall(r'<w:t[^>]*>(.*?)</w:t>', snippet, re.DOTALL)
         ctx_words = [t.strip() for t in ctx_texts if t.strip()]
         context   = " ".join(ctx_words[-6:])
-        fields.append({"key": f"test_row_{m.group(1)}",
+        # determine section: functional vs error handling
+        full_ctx = " ".join(ctx_words).lower()
+        if "error" in full_ctx:
+            section = "error_handling"
+        else:
+            section = "functional"
+        base_key = f"test_row_{section}_{m.group(1)}"
+        idx = test_row_seen.get(base_key, 0)
+        test_row_seen[base_key] = idx + 1
+        key = base_key if idx == 0 else f"{base_key}_{idx}"
+        fields.append({"key": key,
                        "type": "test_row",
                        "label": m.group(1),
+                       "section": section,
                        "context": context})
 
     # plain empty table cells (label | empty value, no form field)
@@ -244,9 +256,10 @@ Rules:
 - "text" and "plain_cell" fields → return a string value (or null to leave blank).
   Use the "context" and "field hint" to understand what information belongs in the field.
   Match semantically — the field label in the template may be worded differently from the source data label, but mean the same thing.
-  For example: "Overview of the purpose and functionality" should be filled from a source field like "Please give a broad overview on the functionality and the purpose".
+  For example: "Overview of the purpose and functionality" should be filled with the FULL multi-sentence description of what the application does and its purpose — never just the product name or a single word. Look for source fields like "Please give a broad overview on the functionality and the purpose", "Description", "Summary", or any paragraph that explains what the product does.
   "Technical approach" should be filled from architecture/technology description sections in the source.
   Always prefer the full descriptive answer from the source over a short name or version number.
+  If a field is about "overview", "purpose", "functionality", "description", or "summary" — always return at least 2-3 sentences explaining WHAT the product does and WHY, not just its name.
 - "checkbox" fields → each checkbox has a "label" (the option it represents) and a "context" (the question/section it belongs to).
   Determine whether to check it using ALL available evidence in priority order:
   1. If the source data has a "Checkbox states" section with "[CHECKED] label" or "[UNCHECKED] label" — use that as ground truth.
@@ -258,7 +271,9 @@ Rules:
   Some labels contain placeholders like "<mention the version>" — match on the base product name only.
 - "dropdown" fields → return the string exactly matching one of the listed options, or null
 - "test_row" fields → return a full test case string (multi-line is fine, use \\n)
-  - Derive from the partner's described business processes and error handling sections
+  - Fields with "section": "functional" → derive from the partner's main functional capabilities and business processes
+  - Fields with "section": "error_handling" → derive from error handling, exception flows, and failure scenarios described in the source
+  - These two sections MUST be different — do not reuse functional test cases for error handling rows
   - Include: test case name, description, steps, expected result
 - Only use information present in the source data — do not invent partner details
 - For fields where source data has no relevant information, return null
@@ -411,8 +426,17 @@ def apply_ai_values(doc_xml: str, ai_values: dict) -> tuple[str, dict]:
     # ── numbered test-case rows ───────────────────────────────────────────────
     label_hits = list(re.finditer(r'<w:t>(\d+\.)</w:t></w:r>', filled))
     assignments: list[tuple[re.Match, str]] = []
+    test_row_seen2: dict[str, int] = {}
     for hit in label_hits:
-        row_key = f"test_row_{hit.group(1)}"
+        snippet = filled[max(0, hit.start() - 1500): hit.start()]
+        ctx_texts = re.findall(r'<w:t[^>]*>(.*?)</w:t>', snippet, re.DOTALL)
+        ctx_words = [t.strip() for t in ctx_texts if t.strip()]
+        full_ctx = " ".join(ctx_words).lower()
+        section = "error_handling" if "error" in full_ctx else "functional"
+        base_key = f"test_row_{section}_{hit.group(1)}"
+        idx = test_row_seen2.get(base_key, 0)
+        test_row_seen2[base_key] = idx + 1
+        row_key = base_key if idx == 0 else f"{base_key}_{idx}"
         val = ai_values.get(row_key)
         if val:
             assignments.append((hit, str(val)))
