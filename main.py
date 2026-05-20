@@ -235,7 +235,12 @@ def extract_field_catalogue(doc_xml: str) -> list[dict]:
                        "section": section,
                        "context": context})
 
-    # plain empty table cells (label | empty value, no form field)
+    PLACEHOLDER_PATTERNS = re.compile(
+        r'^(please |<|describe |enter |mention |specify |provide |write |\[)',
+        re.IGNORECASE
+    )
+
+    # plain table cells (label | empty-or-placeholder value, no form field)
     rows = re.findall(r'<w:tr[ >].*?</w:tr>', doc_xml, re.DOTALL)
     empty_cell_seen: dict[str, int] = {}
     for row in rows:
@@ -247,7 +252,8 @@ def extract_field_catalogue(doc_xml: str) -> list[dict]:
         right_has_field = '<w:fldChar' in cells[1]
         label = ' '.join(t.strip() for t in left_texts if t.strip() and '<w' not in t)
         right_content = ' '.join(t.strip() for t in right_texts if t.strip())
-        if label and not right_content and not right_has_field:
+        is_placeholder = bool(right_content and PLACEHOLDER_PATTERNS.match(right_content))
+        if label and (not right_content or is_placeholder) and not right_has_field:
             idx = empty_cell_seen.get(label, 0)
             empty_cell_seen[label] = idx + 1
             key = f"plain_cell_{re.sub(r'[^a-zA-Z0-9]', '_', label[:30])}[{idx}]"
@@ -483,6 +489,10 @@ def apply_ai_values(doc_xml: str, ai_values: dict) -> tuple[str, dict]:
             summary[f"test_row_{hit.group(1)}"] = f"filled:{case_text[:40]}"
 
     # ── plain empty table cells ───────────────────────────────────────────────
+    PLACEHOLDER_PAT2 = re.compile(
+        r'^(please |<|describe |enter |mention |specify |provide |write |\[)',
+        re.IGNORECASE
+    )
     plain_cell_seen: dict[str, int] = {}
     rows = list(re.finditer(r'<w:tr[ >].*?</w:tr>', filled, re.DOTALL))
     offset = 0
@@ -496,7 +506,8 @@ def apply_ai_values(doc_xml: str, ai_values: dict) -> tuple[str, dict]:
         right_has_field = '<w:fldChar' in cells[1].group(0)
         label = ' '.join(t.strip() for t in left_texts if t.strip() and '<w' not in t)
         right_content = ' '.join(t.strip() for t in right_texts if t.strip())
-        if not label or right_content or right_has_field:
+        is_placeholder = bool(right_content and PLACEHOLDER_PAT2.match(right_content))
+        if not label or (right_content and not is_placeholder) or right_has_field:
             continue
         cell_idx = plain_cell_seen.get(label, 0)
         plain_cell_seen[label] = cell_idx + 1
@@ -506,17 +517,25 @@ def apply_ai_values(doc_xml: str, ai_values: dict) -> tuple[str, dict]:
             continue
         # inject text into the empty right cell's first paragraph
         right_cell = cells[1].group(0)
-        # find the empty paragraph and insert a run with the value
+        # inject: replace all existing runs in the right cell's first paragraph with new content
         rpr_m = re.search(r'(<w:rPr>.*?</w:rPr>)', row_xml, re.DOTALL)
         rpr = rpr_m.group(1) if rpr_m else RPR_DEFAULT
         new_run = _make_runs(str(val), rpr)
+        # Replace entire paragraph content (handles both empty and placeholder text)
         new_right_cell = re.sub(
-            r'(<w:p[^>]*>)(<w:pPr>.*?</w:pPr>)(</w:p>)',
-            lambda pm: pm.group(1) + pm.group(2) + new_run + pm.group(3),
+            r'(<w:p[^>]*>)(<w:pPr>.*?</w:pPr>)((?:<w:r>.*?</w:r>)*)(</w:p>)',
+            lambda pm: pm.group(1) + pm.group(2) + new_run + pm.group(4),
             right_cell, count=1, flags=re.DOTALL
         )
         if new_right_cell == right_cell:
-            # no pPr — simpler paragraph
+            # no pPr variant
+            new_right_cell = re.sub(
+                r'(<w:p[^>]*>)((?:<w:r>.*?</w:r>)*)(</w:p>)',
+                lambda pm: pm.group(1) + new_run + pm.group(3),
+                right_cell, count=1, flags=re.DOTALL
+            )
+        if new_right_cell == right_cell:
+            # fallback: empty paragraph
             new_right_cell = re.sub(
                 r'(<w:p[^>]*>)(</w:p>)',
                 lambda pm: pm.group(1) + new_run + pm.group(2),
