@@ -199,19 +199,33 @@ def extract_field_catalogue(doc_xml: str) -> list[dict]:
                            "context": rich_context, "current": cur_text})
 
     # numbered test-case rows (plain table cells, not form fields)
+    # Build a position->section map by finding section headings in document order
+    section_markers: list[tuple[int, str]] = []
+    for sm in re.finditer(r'<w:t[^>]*>(.*?)</w:t>', doc_xml, re.DOTALL):
+        txt = sm.group(1).strip().lower()
+        if "error handling" in txt or "error test" in txt:
+            section_markers.append((sm.start(), "error_handling"))
+        elif "functional test" in txt or "functional" in txt:
+            section_markers.append((sm.start(), "functional"))
+
+    def _section_for_pos(pos: int) -> str:
+        """Return the most recent section heading before pos."""
+        result = "functional"
+        for marker_pos, marker_section in section_markers:
+            if marker_pos < pos:
+                result = marker_section
+            else:
+                break
+        return result
+
     test_row_seen: dict[str, int] = {}
     for m in re.finditer(r'<w:t>(\d+\.)</w:t></w:r>', doc_xml):
-        snippet   = doc_xml[max(0, m.start() - 1500): m.start()]
+        snippet   = doc_xml[max(0, m.start() - 400): m.start()]
         ctx_texts = re.findall(r'<w:t[^>]*>(.*?)</w:t>', snippet, re.DOTALL)
         ctx_words = [t.strip() for t in ctx_texts if t.strip()]
         context   = " ".join(ctx_words[-6:])
-        # determine section: functional vs error handling
-        full_ctx = " ".join(ctx_words).lower()
-        if "error" in full_ctx:
-            section = "error_handling"
-        else:
-            section = "functional"
-        base_key = f"test_row_{section}_{m.group(1)}"
+        section   = _section_for_pos(m.start())
+        base_key  = f"test_row_{section}_{m.group(1)}"
         idx = test_row_seen.get(base_key, 0)
         test_row_seen[base_key] = idx + 1
         key = base_key if idx == 0 else f"{base_key}_{idx}"
@@ -424,15 +438,29 @@ def apply_ai_values(doc_xml: str, ai_values: dict) -> tuple[str, dict]:
     filled = FIELD_PAT.sub(_replace, doc_xml)
 
     # ── numbered test-case rows ───────────────────────────────────────────────
+    # Build position->section map same as in extract_field_catalogue
+    section_markers2: list[tuple[int, str]] = []
+    for sm in re.finditer(r'<w:t[^>]*>(.*?)</w:t>', filled, re.DOTALL):
+        txt = sm.group(1).strip().lower()
+        if "error handling" in txt or "error test" in txt:
+            section_markers2.append((sm.start(), "error_handling"))
+        elif "functional test" in txt or "functional" in txt:
+            section_markers2.append((sm.start(), "functional"))
+
+    def _section_for_pos2(pos: int) -> str:
+        result = "functional"
+        for marker_pos, marker_section in section_markers2:
+            if marker_pos < pos:
+                result = marker_section
+            else:
+                break
+        return result
+
     label_hits = list(re.finditer(r'<w:t>(\d+\.)</w:t></w:r>', filled))
     assignments: list[tuple[re.Match, str]] = []
     test_row_seen2: dict[str, int] = {}
     for hit in label_hits:
-        snippet = filled[max(0, hit.start() - 1500): hit.start()]
-        ctx_texts = re.findall(r'<w:t[^>]*>(.*?)</w:t>', snippet, re.DOTALL)
-        ctx_words = [t.strip() for t in ctx_texts if t.strip()]
-        full_ctx = " ".join(ctx_words).lower()
-        section = "error_handling" if "error" in full_ctx else "functional"
+        section  = _section_for_pos2(hit.start())
         base_key = f"test_row_{section}_{hit.group(1)}"
         idx = test_row_seen2.get(base_key, 0)
         test_row_seen2[base_key] = idx + 1
